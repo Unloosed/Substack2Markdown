@@ -332,8 +332,18 @@ class BaseSubstackScraper(ABC):
             "div",
             class_="pencraft pc-reset color-pub-secondary-text-hGQ02T line-height-20-t4M0El font-meta-MWBumP size-11-NuY2Zx weight-medium-fw81nC transform-uppercase-yKDgcq reset-IxiVJZ meta-EgzBVA"
         )
-        raw_date = date_element.text.strip() if date_element else "Date not found"
-        date = format_substack_date(raw_date)
+        raw_date_full = date_element.text.strip() if date_element else "Date not found"
+
+        # Attempt to isolate the date part if it's appended with " - "
+        if " - " in raw_date_full:
+            parts = raw_date_full.split(" - ")
+            # Assume the date is the last part. This is a heuristic.
+            # Further validation could be added here if needed (e.g., regex for date-like pattern)
+            raw_date_isolated = parts[-1]
+        else:
+            raw_date_isolated = raw_date_full
+
+        date = format_substack_date(raw_date_isolated)
 
         like_count_element = soup.select_one("a.post-ufi-button .label")
         like_count = (
