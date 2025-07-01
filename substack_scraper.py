@@ -26,6 +26,7 @@ from config import (
 from ebooklib import epub
 import shutil  # For robustly creating directories
 
+DELAY_LENGTH = 5 # Seconds of delay in between each post query
 
 def extract_main_part(url: str) -> str:
     parts = urlparse(url).netloc.split('.')  # Parse the URL to get the netloc, and split on '.'
@@ -636,7 +637,7 @@ class BaseSubstackScraper(ABC):
                 print(f"Reached scrape limit of {num_posts_to_scrape} successfully processed new posts.")
                 break
 
-            sleep(2) # Add a 2-second delay to be respectful to the server
+            sleep(DELAY_LENGTH) # Add a delay (seconds) to be respectful to the server
 
         self.save_essays_data_to_json(essays_data=essays_data)
         generate_html_file(author_name=self.writer_name)
