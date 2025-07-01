@@ -16,7 +16,7 @@ And another:
 
 You can read the whole piece [on their website](https://drb.ie/articles/keynes-in-dublin/).
 
- _Sam Enright is executive editor of the Fitzwilliam. You can follow him on Twitter[here](https://x.com/Sam__Enright). _
+_Sam Enright is executive editor of the Fitzwilliam. You can follow him on Twitter[here](https://x.com/Sam__Enright). _
 
 Thanks for reading The Fitzwilliam! Subscribe for free to receive new posts and support our work.
 

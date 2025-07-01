@@ -39,12 +39,12 @@ The July meetup will be on **Sunday, July 6th** at **2pm**. It will also be in t
 
   3. [How to Save Twenty Million Lives](https://www.statecraft.pub/p/saving-twenty-million-lives)
 
-  4.  **Bonus:**[50 Thoughts on DOGE](https://www.statecraft.pub/p/50-thoughts-on-doge)
+  4. **Bonus:**[50 Thoughts on DOGE](https://www.statecraft.pub/p/50-thoughts-on-doge)
 
 
 
 
-You can join the mailing list [here](https://docs.google.com/forms/d/e/1FAIpQLScUTdfnLlwNqm36jiXNMOHP7prU9TjegGNch4HCEhCVrQ79zQ/viewform?usp=sharing&ouid=115606340663279867593). [ **Edit:** I ported over this list on 26/05/25. If you’re reading this more recently than that, email sam [at] thefitzwilliam [dot] com to join the group.] The form also has an optional space to include your number for a WhatsApp group for general chit-chat. The normal disclaimers apply about how we expect people to be respectful. Everything official will be announced on both platforms. I encourage people to join even if they have a low probability of being in Dublin in any given month. Indeed, you’re welcome to join the mailing list even if you just want my monthly curated reading list (if that sounds appealing, you might enjoy my [monthly](https://samenright.substack.com/p/links-for-february) [links](https://samenright.substack.com/p/links-for-march) [roundups](https://samenright.substack.com/p/links-for-april)).
+You can join the mailing list [here](https://docs.google.com/forms/d/e/1FAIpQLScUTdfnLlwNqm36jiXNMOHP7prU9TjegGNch4HCEhCVrQ79zQ/viewform?usp=sharing&ouid=115606340663279867593). [**Edit:** I ported over this list on 26/05/25. If you’re reading this more recently than that, email sam [at] thefitzwilliam [dot] com to join the group.] The form also has an optional space to include your number for a WhatsApp group for general chit-chat. The normal disclaimers apply about how we expect people to be respectful. Everything official will be announced on both platforms. I encourage people to join even if they have a low probability of being in Dublin in any given month. Indeed, you’re welcome to join the mailing list even if you just want my monthly curated reading list (if that sounds appealing, you might enjoy my [monthly](https://samenright.substack.com/p/links-for-february) [links](https://samenright.substack.com/p/links-for-march) [roundups](https://samenright.substack.com/p/links-for-april)).
 
 If you have further questions, you can email sam [at] thefitzwilliam [dot] com, or reply to this email. After the first meeting, we can also discuss the timing and reading for the August meetup. I look forward to seeing many of you there.
 
