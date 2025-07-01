@@ -20,7 +20,7 @@ from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.chrome.service import Service
 from urllib.parse import urlparse
 from config import (
-    EMAIL, PASSWORD, USE_PREMIUM, SUBSTACK_URLS, BASE_MD_DIR,
+    EMAIL, PASSWORD, USE_PREMIUM, SUBSTACK_URLS, BASE_MD_DIR, BASE_EPUB_DIR,
     BASE_HTML_DIR, HTML_TEMPLATE, JSON_DATA_DIR, NUM_POSTS_TO_SCRAPE
 )
 from ebooklib import epub
@@ -431,11 +431,10 @@ class BaseSubstackScraper(ABC):
         toc = []
 
         # Create a directory for EPUBs if it doesn't exist
-        epub_dir = "substack_epubs"
-        if not os.path.exists(epub_dir):
-            os.makedirs(epub_dir)
+        if not os.path.exists(BASE_EPUB_DIR):
+            os.makedirs(BASE_EPUB_DIR)
 
-        author_epub_dir = os.path.join(epub_dir, author_name)
+        author_epub_dir = os.path.join(BASE_EPUB_DIR, author_name)
         if not os.path.exists(author_epub_dir):
             os.makedirs(author_epub_dir)
 
