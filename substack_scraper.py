@@ -52,7 +52,11 @@ def format_substack_date(date_str: str) -> str:
     date_str = date_str.replace(" minutes", " min").replace(" minute", " min")
 
     try:
-        # Handle formats like "Jan 1, 2023"
+        # Handle formats like "Jan 1, 2023" or "Jun 09, 2025"
+        # Note: "%b %d, %Y" should correctly parse "Jan 1, 2023"
+        # and "Jun 09, 2025" as long as the month abbreviation is recognized
+        # by the locale settings of the environment where the script is run.
+        # Python's strptime is generally good with standard English month abbreviations.
         dt_object = datetime.strptime(date_str, "%b %d, %Y")
         return dt_object.strftime("%Y-%m-%d")
     except ValueError:
