@@ -19,17 +19,12 @@ from webdriver_manager.microsoft import EdgeChromiumDriverManager
 from selenium.webdriver.edge.options import Options as EdgeOptions
 from selenium.webdriver.chrome.service import Service
 from urllib.parse import urlparse
-from config import EMAIL, PASSWORD
+from config import (
+    EMAIL, PASSWORD, USE_PREMIUM, SUBSTACK_URLS, BASE_MD_DIR,
+    BASE_HTML_DIR, HTML_TEMPLATE, JSON_DATA_DIR, NUM_POSTS_TO_SCRAPE
+)
 from ebooklib import epub
 import shutil  # For robustly creating directories
-
-USE_PREMIUM: bool = False  # Set to True if you want to login to Substack and convert paid for posts
-BASE_SUBSTACK_URL: str = "https://www.thefitzwilliam.com/"  # Substack you want to convert to markdown
-BASE_MD_DIR: str = "substack_md_files"  # Name of the directory we'll save the .md essay files
-BASE_HTML_DIR: str = "substack_html_pages"  # Name of the directory we'll save the .html essay files
-HTML_TEMPLATE: str = "author_template.html"  # HTML template to use for the author page
-JSON_DATA_DIR: str = "data"
-NUM_POSTS_TO_SCRAPE: int = 3  # Set to 0 if you want all posts
 
 
 def extract_main_part(url: str) -> str:
@@ -780,37 +775,31 @@ def main():
         args.html_directory = BASE_HTML_DIR
 
     if args.url:
-        if args.premium:
-            scraper = PremiumSubstackScraper(
-                args.url,
-                headless=args.headless,
-                md_save_dir=args.directory,
-                html_save_dir=args.html_directory
-            )
-        else:
-            scraper = SubstackScraper(
-                args.url,
-                md_save_dir=args.directory,
-                html_save_dir=args.html_directory
-            )
-        scraper.scrape_posts(args.number)
+        urls_to_scrape = [args.url]
+    else:
+        urls_to_scrape = SUBSTACK_URLS
 
-    else:  # Use the hardcoded values at the top of the file
-        if USE_PREMIUM:
+    for url in urls_to_scrape:
+        print(f"Scraping {url}...")
+        if args.premium or USE_PREMIUM:
             scraper = PremiumSubstackScraper(
-                base_substack_url=BASE_SUBSTACK_URL,
+                base_substack_url=url,
+                headless=args.headless,
                 md_save_dir=args.directory,
                 html_save_dir=args.html_directory,
                 edge_path=args.edge_path,
-                edge_driver_path=args.edge_driver_path
+                edge_driver_path=args.edge_driver_path,
+                user_agent=args.user_agent
             )
         else:
             scraper = SubstackScraper(
-                base_substack_url=BASE_SUBSTACK_URL,
+                base_substack_url=url,
                 md_save_dir=args.directory,
                 html_save_dir=args.html_directory
             )
-        scraper.scrape_posts(num_posts_to_scrape=NUM_POSTS_TO_SCRAPE)
+
+        num_posts = args.number if args.url else NUM_POSTS_TO_SCRAPE
+        scraper.scrape_posts(num_posts_to_scrape=num_posts)
 
 
 if __name__ == "__main__":
