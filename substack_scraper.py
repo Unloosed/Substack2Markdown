@@ -46,6 +46,8 @@ def format_substack_date(date_str: str) -> str:
     if date_str == "Date not found":
         return "Unknown Date"  # Or handle as an error, or return None
 
+    date_str = date_str.strip() # Ensure all parsing attempts work with a clean string
+
     # Normalize common variations like "hours" to "hr"
     date_str = date_str.replace(" hours", " hr").replace(" hour", " hr")
     date_str = date_str.replace(" days", " day").replace(" day", " day")  # "1 day ago" is fine
@@ -66,24 +68,24 @@ def format_substack_date(date_str: str) -> str:
         # Attempt 2: Handle "MMM DD, YYYY" with manual month replacement for locale independence
         # Example: "Jun 09, 2025"
         try:
-            parts = date_str.replace(',', '').split() # ["Jun", "09", "2025"]
-            if len(parts) == 3 and parts[0] in month_abbr_map:
-                # Reconstruct into "MM-DD-YYYY" or similar that strptime can handle, or parse directly
-                # Using a known format: "MM DD YYYY"
-                day = parts[1]
-                month_num = month_abbr_map[parts[0]]
-                year = parts[2]
-                # Ensure day is two digits (e.g., "09")
-                if len(day) == 1:
-                    day = "0" + day
-                # Construct a date string in "YYYY-MM-DD" format directly
-                # This avoids another strptime call if we are sure about the parts
-                # However, strptime is good for validation (e.g. valid day for month)
-                # Let's try parsing "MM DD, YYYY" after replacing month name with number
-                # Or better, parse a specific format:
-                dt_object = datetime.strptime(f"{month_num} {day} {year}", "%m %d %Y")
-                return dt_object.strftime("%Y-%m-%d")
-        except (ValueError, IndexError): # IndexError if parts don't exist as expected
+            # date_str is already stripped from the function's start
+            processed_date_str = date_str.replace(',', '') # Remove commas
+            parts = processed_date_str.split() # Split by whitespace
+
+            if len(parts) == 3:
+                month_str = parts[0].strip()
+                day_str = parts[1].strip()
+                year_str = parts[2].strip()
+
+                if month_str in month_abbr_map and day_str.isdigit() and year_str.isdigit():
+                    month_num = month_abbr_map[month_str]
+                    # strptime can handle single or double digit days with %d, and full year with %Y.
+                    # No need to manually zfill day_str if using %d.
+                    dt_object = datetime.strptime(f"{month_num} {day_str} {year_str}", "%m %d %Y")
+                    return dt_object.strftime("%Y-%m-%d")
+            # If parsing fails or conditions are not met, this try block will complete,
+            # and the function will proceed to other parsing attempts or the final fallback.
+        except (ValueError, IndexError): # Catches errors from strptime or list indexing if parts are not as expected
             pass # If this custom parsing fails, move to next methods
 
         # Handle relative dates like "1 day ago", "1 hr ago"
