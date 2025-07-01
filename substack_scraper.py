@@ -51,12 +51,42 @@ def format_substack_date(date_str: str) -> str:
     date_str = date_str.replace(" days", " day").replace(" day", " day")  # "1 day ago" is fine
     date_str = date_str.replace(" minutes", " min").replace(" minute", " min")
 
+    # Define a mapping for English month abbreviations to ensure parsing works independently of locale
+    month_abbr_map = {
+        "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", "May": "05", "Jun": "06",
+        "Jul": "07", "Aug": "08", "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
+    }
+
     try:
-        # Handle formats like "Jan 1, 2023"
+        # Attempt 1: Standard "%b %d, %Y" (e.g., "Jan 1, 2023", "Jun 09, 2025")
+        # This is kept as it's the most direct if locale matches.
         dt_object = datetime.strptime(date_str, "%b %d, %Y")
         return dt_object.strftime("%Y-%m-%d")
     except ValueError:
-        # Handle relative dates like "1 day ago", "1 hr ago", "Mar 23" (assuming current year)
+        # Attempt 2: Handle "MMM DD, YYYY" with manual month replacement for locale independence
+        # Example: "Jun 09, 2025"
+        try:
+            parts = date_str.replace(',', '').split() # ["Jun", "09", "2025"]
+            if len(parts) == 3 and parts[0] in month_abbr_map:
+                # Reconstruct into "MM-DD-YYYY" or similar that strptime can handle, or parse directly
+                # Using a known format: "MM DD YYYY"
+                day = parts[1]
+                month_num = month_abbr_map[parts[0]]
+                year = parts[2]
+                # Ensure day is two digits (e.g., "09")
+                if len(day) == 1:
+                    day = "0" + day
+                # Construct a date string in "YYYY-MM-DD" format directly
+                # This avoids another strptime call if we are sure about the parts
+                # However, strptime is good for validation (e.g. valid day for month)
+                # Let's try parsing "MM DD, YYYY" after replacing month name with number
+                # Or better, parse a specific format:
+                dt_object = datetime.strptime(f"{month_num} {day} {year}", "%m %d %Y")
+                return dt_object.strftime("%Y-%m-%d")
+        except (ValueError, IndexError): # IndexError if parts don't exist as expected
+            pass # If this custom parsing fails, move to next methods
+
+        # Handle relative dates like "1 day ago", "1 hr ago"
         if "ago" in date_str or "hr" in date_str or "min" in date_str:  # simple handling for recent posts
             # For "X days/hours/mins ago", approximate to today's date.
             # More precise parsing would require libraries like `dateparser`
