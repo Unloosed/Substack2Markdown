@@ -2,7 +2,7 @@
 
 ## A new outlet for discussion in Dublin
 
-**May 14, 2025**
+**2025-05-14**
 
 **Likes:** 20
 
