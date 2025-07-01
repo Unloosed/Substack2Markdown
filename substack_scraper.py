@@ -529,7 +529,23 @@ class BaseSubstackScraper(ABC):
             epub_chapter.add_item(default_css)  # Link CSS to this chapter
             book.add_item(epub_chapter)
             chapters.append(epub_chapter)
-            toc.append(epub.Link(chapter_filename, str(chapter_title), f"chap_{i + 1}"))
+
+            # Add date to TOC title
+            post_date = post_meta.get("date", "Unknown Date")
+            if post_date == "Unknown Date" or post_date == "Date not found":
+                toc_title = str(chapter_title)
+            else:
+                # Ensure date is formatted as YYYY-MM-DD before appending
+                try:
+                    # Assuming post_date is already in "YYYY-MM-DD" after format_substack_date
+                    # If not, re-format or ensure it is.
+                    datetime.strptime(post_date, "%Y-%m-%d") # Validate format
+                    toc_title = f"{str(chapter_title)} ({post_date})"
+                except ValueError:
+                    # If date is not in YYYY-MM-DD, use it as is or log warning
+                    toc_title = f"{str(chapter_title)} ({post_date})" # Fallback or handle error
+
+            toc.append(epub.Link(chapter_filename, toc_title, f"chap_{i + 1}"))
 
         # Define Table of Contents
         book.toc = tuple(toc)
