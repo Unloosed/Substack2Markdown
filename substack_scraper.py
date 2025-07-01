@@ -320,7 +320,8 @@ class BaseSubstackScraper(ABC):
         """
         Converts substack post soup to markdown, returns metadata and content
         """
-        title = soup.select_one("h1.post-title, h2").text.strip()  # When a video is present, the title is demoted to h2
+        title_element = soup.select_one("h1.post-title, h2")
+        title = title_element.text.strip() if title_element else "Title not found"
 
         subtitle_element = soup.select_one("h3.subtitle")
         subtitle = subtitle_element.text.strip() if subtitle_element else ""
@@ -349,8 +350,12 @@ class BaseSubstackScraper(ABC):
             else "0"
         )
 
-        content = str(soup.select_one("div.available-content"))
-        md = self.html_to_md(content)
+        content_element = soup.select_one("div.available-content")
+        content_html = str(content_element) if content_element else "<p>Content not found</p>"
+        # Using "<p>Content not found</p>" so html_to_md still gets valid HTML,
+        # which will translate to "Content not found" in markdown.
+
+        md = self.html_to_md(content_html)
         md_content = self.combine_metadata_and_content(title, subtitle, date, like_count, md)
         return title, subtitle, like_count, date, md_content
 
@@ -577,7 +582,21 @@ class BaseSubstackScraper(ABC):
         essays_data = []
         count = 0
         total = num_posts_to_scrape if num_posts_to_scrape != 0 else len(self.post_urls)
-        for url in tqdm(self.post_urls, total=total):
+        # Initialize tqdm with the correct total number of items to process.
+        # If num_posts_to_scrape is set, it limits how many new posts we attempt to scrape.
+        # If 0, we iterate through all fetched post_urls.
+
+        # We use a progress bar for the number of URLs we intend to process.
+        # If a URL is skipped (e.g. already exists, or fails to download/parse),
+        # tqdm will still advance for that iteration.
+
+        processed_urls_count = 0 # To keep track of successfully processed posts for the num_posts_to_scrape limit
+
+        for url in tqdm(self.post_urls, total=total, desc=f"Scraping {self.writer_name}"):
+            if num_posts_to_scrape != 0 and processed_urls_count >= num_posts_to_scrape:
+                print(f"Reached scrape limit of {num_posts_to_scrape} posts.")
+                break # Exit the loop if the desired number of posts has been scraped
+
             try:
                 md_filename = self.get_filename_from_url(url, filetype=".md")
                 html_filename = self.get_filename_from_url(url, filetype=".html")
@@ -587,8 +606,10 @@ class BaseSubstackScraper(ABC):
                 if not os.path.exists(md_filepath):
                     soup = self.get_url_soup(url)
                     if soup is None:
-                        total += 1
+                        # If soup is None, get_url_soup already printed a message.
+                        # We just continue to the next URL. tqdm will advance.
                         continue
+
                     title, subtitle, like_count, date, md = self.extract_post_data(soup)
                     self.save_to_file(md_filepath, md)
 
@@ -604,13 +625,19 @@ class BaseSubstackScraper(ABC):
                         "file_link": md_filepath,
                         "html_link": html_filepath
                     })
+                    count += 1 # Increment count only for successfully processed new posts
                 else:
                     print(f"File already exists: {md_filepath}")
             except Exception as e:
-                print(f"Error scraping post: {e}")
-            count += 1
-            if num_posts_to_scrape != 0 and count == num_posts_to_scrape:
+                print(f"Error scraping post: {e} for URL: {url}") # Added URL to error message
+
+            # Check if the desired number of posts has been scraped
+            if num_posts_to_scrape != 0 and count >= num_posts_to_scrape: # Changed to >=
+                print(f"Reached scrape limit of {num_posts_to_scrape} successfully processed new posts.")
                 break
+
+            sleep(2) # Add a 2-second delay to be respectful to the server
+
         self.save_essays_data_to_json(essays_data=essays_data)
         generate_html_file(author_name=self.writer_name)
 
@@ -634,17 +661,40 @@ class SubstackScraper(BaseSubstackScraper):
 
     def get_url_soup(self, url: str) -> Optional[BeautifulSoup]:
         """
-        Gets soup from URL using requests
+        Gets soup from URL using requests.
+        Returns BeautifulSoup object or None if fetching/parsing fails or content is missing.
         """
         try:
-            page = requests.get(url, headers=None)
+            page = requests.get(url, headers=None, timeout=10) # Added timeout
+            page.raise_for_status()  # Raise HTTPError for bad responses (4XX or 5XX)
             soup = BeautifulSoup(page.content, "html.parser")
+
+            # Check for paywall
             if soup.find("h2", class_="paywall-title"):
                 print(f"Skipping premium article: {url}")
                 return None
+
+            # Preemptive check for essential content elements
+            # If neither title-like elements nor the main content div is found,
+            # the page structure might be unexpected or an error page.
+            has_title_elements = soup.select_one("h1.post-title, h2")
+            has_content_div = soup.select_one("div.available-content")
+
+            if not has_title_elements and not has_content_div:
+                print(f"Warning: Essential content (title or body) missing from {url}. Skipping.")
+                return None
+
             return soup
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP error fetching page {url}: {e}")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching page {url}: {e}")
+            return None
         except Exception as e:
-            raise ValueError(f"Error fetching page: {e}") from e
+            # Catch any other unexpected errors during parsing (e.g., BeautifulSoup issues)
+            print(f"An unexpected error occurred while processing {url}: {e}")
+            return None
 
 
 class PremiumSubstackScraper(BaseSubstackScraper):
