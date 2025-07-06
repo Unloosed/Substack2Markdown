@@ -606,6 +606,10 @@ class BaseSubstackScraper(ABC):
                 html_filepath = os.path.join(self.html_save_dir, html_filename)
 
                 if not os.path.exists(md_filepath):
+                    # Add a delay (seconds) to be respectful to the server BEFORE fetching a new article
+                    print(f"Pausing for {DELAY_LENGTH} seconds before fetching new article: {url}")
+                    sleep(DELAY_LENGTH)
+
                     soup = self.get_url_soup(url)
                     if soup is None:
                         # If soup is None, get_url_soup already printed a message.
@@ -628,7 +632,6 @@ class BaseSubstackScraper(ABC):
                         "html_link": html_filepath
                     })
                     count += 1 # Increment count only for successfully processed new posts
-                    sleep(DELAY_LENGTH) # Add a delay (seconds) to be respectful to the server
                 else:
                     print(f"File already exists: {md_filepath}")
             except Exception as e:
