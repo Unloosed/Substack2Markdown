@@ -3,7 +3,8 @@ PASSWORD = "your-password"
 
 from typing import List
 
-# Moved from substack_scraper.py
+DELAY_LENGTH = 5 # Seconds of delay in between each post query
+
 USE_PREMIUM: bool = False  # Set to True if you want to login to Substack and convert paid for posts
 SUBSTACK_URLS: List[str] = [ # Substack(s) you want to convert to markdown
     "https://www.thefitzwilliam.com/",

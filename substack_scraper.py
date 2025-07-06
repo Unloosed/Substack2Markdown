@@ -21,12 +21,10 @@ from selenium.webdriver.chrome.service import Service
 from urllib.parse import urlparse
 from config import (
     EMAIL, PASSWORD, USE_PREMIUM, SUBSTACK_URLS, BASE_MD_DIR, BASE_EPUB_DIR,
-    BASE_HTML_DIR, HTML_TEMPLATE, JSON_DATA_DIR, NUM_POSTS_TO_SCRAPE
+    BASE_HTML_DIR, HTML_TEMPLATE, JSON_DATA_DIR, NUM_POSTS_TO_SCRAPE, DELAY_LENGTH
 )
 from ebooklib import epub
 import shutil  # For robustly creating directories
-
-DELAY_LENGTH = 5 # Seconds of delay in between each post query
 
 def extract_main_part(url: str) -> str:
     parts = urlparse(url).netloc.split('.')  # Parse the URL to get the netloc, and split on '.'
