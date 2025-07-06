@@ -649,13 +649,20 @@ class BaseSubstackScraper(ABC):
                 html_filepath = os.path.join(self.html_save_dir, html_filename)
 
                 if not os.path.exists(md_filepath):
+                    # Check for premium status using feed content IF this is a SubstackScraper instance
+                    if isinstance(self, SubstackScraper) and self.is_article_premium_from_feed(url):
+                        print(f"Skipping premium article (feed check) and associated sleep: {url}")
+                        # No sleep, no get_url_soup, continue to next URL
+                        continue
+
+                    # If not premium (based on feed) or not a SubstackScraper instance, proceed with delay and fetch
                     # Add a delay (seconds) to be respectful to the server BEFORE fetching a new article
                     print(f"Pausing for {DELAY_LENGTH} seconds before fetching new article: {url}")
                     sleep(DELAY_LENGTH)
 
                     soup = self.get_url_soup(url)
                     if soup is None:
-                        # If soup is None, get_url_soup already printed a message.
+                        # If soup is None, get_url_soup might have printed a message (e.g. premium detected on page).
                         # We just continue to the next URL. tqdm will advance.
                         continue
 
@@ -706,52 +713,49 @@ class SubstackScraper(BaseSubstackScraper):
     def __init__(self, base_substack_url: str, md_save_dir: str, html_save_dir: str):
         super().__init__(base_substack_url, md_save_dir, html_save_dir)
 
+    def is_article_premium_from_feed(self, url: str) -> bool:
+        """
+        Checks if an article is premium based on its content in the feed.
+        Returns True if premium, False otherwise.
+        """
+        if hasattr(self, 'feed_item_contents') and url in self.feed_item_contents:
+            feed_html_snippet = self.feed_item_contents[url]
+            if feed_html_snippet:  # Ensure there's content to parse
+                feed_soup = BeautifulSoup(feed_html_snippet, "html.parser")
+                # Check for common Substack paywall patterns in RSS feed snippets
+                # 1. Explicit "paid subscribers" text
+                paid_subscriber_texts = [
+                    "this post is for paid subscribers",
+                    "to read the full post, subscribe",
+                    "this is a preview of a paid post",
+                    "upgrade to paid"
+                ]
+                if any(text.lower() in feed_soup.get_text().lower() for text in paid_subscriber_texts):
+                    return True
+
+                # 2. Presence of a prominent "subscribe" button that's likely a paywall CTA
+                subscribe_button = feed_soup.find("a", class_="button", href=lambda x: x and "subscribe?" in x)
+                if subscribe_button:
+                    description_element = feed_soup.find("meta", property="og:description")
+                    description_text = description_element['content'].lower() if description_element and description_element.get('content') else ""
+                    if "subscribe" in subscribe_button.text.lower() and ("only for subscribers" in description_text or "paid post" in description_text):
+                        return True
+        return False
+
     def get_url_soup(self, url: str) -> Optional[BeautifulSoup]:
         """
         Gets soup from URL using requests.
         Returns BeautifulSoup object or None if fetching/parsing fails or content is missing.
         """
+        # The pre-emptive feed check is now done in scrape_posts before calling this method
+        # for SubstackScraper instances.
+        # However, we keep a simplified version of the feed check here as a fallback
+        # or if get_url_soup is called directly.
+        if self.is_article_premium_from_feed(url):
+            print(f"Skipping premium article (detected from feed preview by get_url_soup): {url}")
+            return None
+
         try:
-            page = requests.get(url, headers=None, timeout=10) # Added timeout
-            page.raise_for_status()  # Raise HTTPError for bad responses (4XX or 5XX)
-            soup = BeautifulSoup(page.content, "html.parser")
-
-            # Check for paywall
-            # Pre-emptive check from feed content
-            if hasattr(self, 'feed_item_contents') and url in self.feed_item_contents:
-                feed_html_snippet = self.feed_item_contents[url]
-                if feed_html_snippet: # Ensure there's content to parse
-                    feed_soup = BeautifulSoup(feed_html_snippet, "html.parser")
-                    # Check for common Substack paywall patterns in RSS feed snippets
-                    # These patterns are heuristics and might need adjustment if Substack changes its feed structure.
-                    # 1. Explicit "paid subscribers" text
-                    paid_subscriber_texts = [
-                        "this post is for paid subscribers",
-                        "to read the full post, subscribe",
-                        "this is a preview of a paid post",
-                        "upgrade to paid"
-                    ]
-                    if any(text.lower() in feed_soup.get_text().lower() for text in paid_subscriber_texts):
-                        print(f"Skipping premium article (detected from feed preview): {url}")
-                        return None
-
-                    # 2. Presence of a prominent "subscribe" button that's likely a paywall CTA
-                    #    Substack often uses a <p class="button-wrapper"> containing an <a> tag.
-                    #    If this is one of the last elements and the content seems short, it's a strong hint.
-                    #    A more robust check would be to see if the main content is significantly truncated.
-                    #    For now, checking for a subscribe button that's clearly a CTA.
-                    subscribe_button = feed_soup.find("a", class_="button", href=lambda x: x and "subscribe?" in x)
-                    if subscribe_button:
-                        # This is a heuristic. A more advanced check could analyze if the button is a primary CTA
-                        # and if the actual content is very short.
-                        # If the description also contains "subscribe to read" or similar, it's a stronger signal.
-                        description_element = feed_soup.find("meta", property="og:description") # Check meta description too
-                        description_text = description_element['content'].lower() if description_element and description_element.get('content') else ""
-
-                        if "subscribe" in subscribe_button.text.lower() and ("only for subscribers" in description_text or "paid post" in description_text):
-                             print(f"Skipping premium article (detected subscribe button in feed preview): {url}")
-                             return None
-
             # If not skipped by feed check, proceed with existing logic
             page = requests.get(url, headers=None, timeout=10) # Added timeout
             page.raise_for_status()  # Raise HTTPError for bad responses (4XX or 5XX)
