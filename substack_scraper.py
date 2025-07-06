@@ -627,6 +627,7 @@ class BaseSubstackScraper(ABC):
                         "html_link": html_filepath
                     })
                     count += 1 # Increment count only for successfully processed new posts
+                    sleep(DELAY_LENGTH) # Add a delay (seconds) to be respectful to the server
                 else:
                     print(f"File already exists: {md_filepath}")
             except Exception as e:
@@ -636,8 +637,6 @@ class BaseSubstackScraper(ABC):
             if num_posts_to_scrape != 0 and count >= num_posts_to_scrape: # Changed to >=
                 print(f"Reached scrape limit of {num_posts_to_scrape} successfully processed new posts.")
                 break
-
-            sleep(DELAY_LENGTH) # Add a delay (seconds) to be respectful to the server
 
         self.save_essays_data_to_json(essays_data=essays_data)
         generate_html_file(author_name=self.writer_name)
