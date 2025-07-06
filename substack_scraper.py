@@ -154,52 +154,95 @@ class BaseSubstackScraper(ABC):
             print(f"Created html directory {self.html_save_dir}")
 
         self.keywords: List[str] = ["about", "archive", "podcast"]
-        self.post_urls: List[str] = self.get_all_post_urls()
+        self.feed_item_contents: dict[str, str] = {}
+        self.post_urls: List[str] = self._get_all_post_urls_and_feed_content()
 
-    def get_all_post_urls(self) -> List[str]:
+    def _get_all_post_urls_and_feed_content(self) -> List[str]:
         """
-        Attempts to fetch URLs from sitemap.xml, falling back to feed.xml if necessary.
+        Fetches URLs primarily from sitemap.xml.
+        Also fetches content from feed.xml to enable pre-emptive premium checks.
+        Falls back to feed.xml for URLs if sitemap.xml fails.
         """
-        urls = self.fetch_urls_from_sitemap()
-        if not urls:
-            urls = self.fetch_urls_from_feed()
-        return self.filter_urls(urls, self.keywords)
+        sitemap_urls = self._fetch_urls_from_sitemap()
+        feed_urls_and_content = self._fetch_urls_and_content_from_feed()
 
-    def fetch_urls_from_sitemap(self) -> List[str]:
+        # Populate self.feed_item_contents from feed_urls_and_content
+        for url, content in feed_urls_and_content.items():
+            self.feed_item_contents[url] = content
+
+        if sitemap_urls:
+            # Combine URLs, prioritizing sitemap for completeness, but ensuring all feed URLs are included
+            # (though feed URLs should mostly be a subset of sitemap URLs)
+            combined_urls = list(sitemap_urls)
+            for url in feed_urls_and_content.keys():
+                if url not in combined_urls:
+                    combined_urls.append(url)
+            # Filter all collected URLs
+            return self.filter_urls(combined_urls, self.keywords)
+        elif feed_urls_and_content:
+            # Fallback to URLs from feed if sitemap failed
+            print("Sitemap.xml failed or was empty, using URLs from feed.xml.")
+            return self.filter_urls(list(feed_urls_and_content.keys()), self.keywords)
+        else:
+            # No URLs from either source
+            print("Could not retrieve URLs from sitemap.xml or feed.xml.")
+            return []
+
+    def _fetch_urls_from_sitemap(self) -> List[str]:
         """
         Fetches URLs from sitemap.xml.
         """
         sitemap_url = f"{self.base_substack_url}sitemap.xml"
-        response = requests.get(sitemap_url)
-
-        if not response.ok:
-            print(f'Error fetching sitemap at {sitemap_url}: {response.status_code}')
+        try:
+            response = requests.get(sitemap_url, timeout=10)
+            response.raise_for_status()
+            root = ET.fromstring(response.content)
+            urls = [element.text for element in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
+            return urls
+        except requests.exceptions.RequestException as e:
+            print(f'Error fetching sitemap at {sitemap_url}: {e}')
+            return []
+        except ET.ParseError as e:
+            print(f'Error parsing sitemap XML from {sitemap_url}: {e}')
             return []
 
-        root = ET.fromstring(response.content)
-        urls = [element.text for element in root.iter('{http://www.sitemaps.org/schemas/sitemap/0.9}loc')]
-        return urls
 
-    def fetch_urls_from_feed(self) -> List[str]:
+    def _fetch_urls_and_content_from_feed(self) -> dict[str, str]:
         """
-        Fetches URLs from feed.xml.
+        Fetches URLs and their <content:encoded> from feed.xml.
+        Returns a dictionary mapping URL to its content string.
         """
-        print('Falling back to feed.xml. This will only contain up to the 22 most recent posts.')
-        feed_url = f"{self.base_substack_url}feed.xml"
-        response = requests.get(feed_url)
+        feed_url = f"{self.base_substack_url}feed" # .xml is often optional, /feed is common
+        urls_and_content = {}
+        try:
+            response = requests.get(feed_url, timeout=10)
+            response.raise_for_status()
+            root = ET.fromstring(response.content)
 
-        if not response.ok:
-            print(f'Error fetching feed at {feed_url}: {response.status_code}')
-            return []
+            # Namespace for content:encoded might vary, common is 'http://purl.org/rss/1.0/modules/content/'
+            # ET.fromstring doesn't handle prefixed tags like content:encoded directly in find unless namespace is registered
+            # A simpler way for known structures is to iterate and check tag names.
 
-        root = ET.fromstring(response.content)
-        urls = []
-        for item in root.findall('.//item'):
-            link = item.find('link')
-            if link is not None and link.text:
-                urls.append(link.text)
+            namespaces = {'content': 'http://purl.org/rss/1.0/modules/content/'} # Common namespace
 
-        return urls
+            for item in root.findall('.//item'):
+                link_element = item.find('link')
+                content_element = item.find('content:encoded', namespaces)
+
+                if link_element is not None and link_element.text:
+                    url = link_element.text
+                    content_html = content_element.text if content_element is not None else ""
+                    urls_and_content[url] = content_html
+
+            if not urls_and_content:
+                 print(f"No items found in feed.xml or feed content missing at {feed_url}")
+
+        except requests.exceptions.RequestException as e:
+            print(f'Error fetching feed at {feed_url}: {e}')
+        except ET.ParseError as e:
+            print(f'Error parsing feed XML from {feed_url}: {e}')
+
+        return urls_and_content
 
     @staticmethod
     def filter_urls(urls: List[str], keywords: List[str]) -> List[str]:
@@ -674,8 +717,49 @@ class SubstackScraper(BaseSubstackScraper):
             soup = BeautifulSoup(page.content, "html.parser")
 
             # Check for paywall
+            # Pre-emptive check from feed content
+            if hasattr(self, 'feed_item_contents') and url in self.feed_item_contents:
+                feed_html_snippet = self.feed_item_contents[url]
+                if feed_html_snippet: # Ensure there's content to parse
+                    feed_soup = BeautifulSoup(feed_html_snippet, "html.parser")
+                    # Check for common Substack paywall patterns in RSS feed snippets
+                    # These patterns are heuristics and might need adjustment if Substack changes its feed structure.
+                    # 1. Explicit "paid subscribers" text
+                    paid_subscriber_texts = [
+                        "this post is for paid subscribers",
+                        "to read the full post, subscribe",
+                        "this is a preview of a paid post",
+                        "upgrade to paid"
+                    ]
+                    if any(text.lower() in feed_soup.get_text().lower() for text in paid_subscriber_texts):
+                        print(f"Skipping premium article (detected from feed preview): {url}")
+                        return None
+
+                    # 2. Presence of a prominent "subscribe" button that's likely a paywall CTA
+                    #    Substack often uses a <p class="button-wrapper"> containing an <a> tag.
+                    #    If this is one of the last elements and the content seems short, it's a strong hint.
+                    #    A more robust check would be to see if the main content is significantly truncated.
+                    #    For now, checking for a subscribe button that's clearly a CTA.
+                    subscribe_button = feed_soup.find("a", class_="button", href=lambda x: x and "subscribe?" in x)
+                    if subscribe_button:
+                        # This is a heuristic. A more advanced check could analyze if the button is a primary CTA
+                        # and if the actual content is very short.
+                        # If the description also contains "subscribe to read" or similar, it's a stronger signal.
+                        description_element = feed_soup.find("meta", property="og:description") # Check meta description too
+                        description_text = description_element['content'].lower() if description_element and description_element.get('content') else ""
+
+                        if "subscribe" in subscribe_button.text.lower() and ("only for subscribers" in description_text or "paid post" in description_text):
+                             print(f"Skipping premium article (detected subscribe button in feed preview): {url}")
+                             return None
+
+            # If not skipped by feed check, proceed with existing logic
+            page = requests.get(url, headers=None, timeout=10) # Added timeout
+            page.raise_for_status()  # Raise HTTPError for bad responses (4XX or 5XX)
+            soup = BeautifulSoup(page.content, "html.parser")
+
+            # Check for paywall on the actual page (this is the original check)
             if soup.find("h2", class_="paywall-title"):
-                print(f"Skipping premium article: {url}")
+                print(f"Skipping premium article (detected on page): {url}")
                 return None
 
             # Preemptive check for essential content elements
