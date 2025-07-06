@@ -649,15 +649,20 @@ class BaseSubstackScraper(ABC):
                 html_filepath = os.path.join(self.html_save_dir, html_filename)
 
                 if not os.path.exists(md_filepath):
-                    # Check for premium status using feed content IF this is a SubstackScraper instance
-                    if isinstance(self, SubstackScraper) and self.is_article_premium_from_feed(url):
-                        print(f"Skipping premium article (feed check) and associated sleep: {url}")
-                        # No sleep, no get_url_soup, continue to next URL
-                        continue
+                    should_skip_fetching = False
+                    if isinstance(self, SubstackScraper):
+                        if self.is_article_premium_from_feed(url):
+                            print(f"Skipping premium article (feed check): {url}")
+                            should_skip_fetching = True
 
-                    # If not premium (based on feed) or not a SubstackScraper instance, proceed with delay and fetch
-                    # Add a delay (seconds) to be respectful to the server BEFORE fetching a new article
-                    print(f"Pausing for {DELAY_LENGTH} seconds before fetching new article: {url}")
+                    if should_skip_fetching:
+                        continue # Skip to the next URL
+
+                    # If we are here, the article is either:
+                    # 1. Not premium (for SubstackScraper, based on feed check)
+                    # 2. Being processed by PremiumSubstackScraper (which doesn't use the feed check to skip here)
+                    # In both cases, if the file doesn't exist, we sleep before fetching.
+                    print(f"Pausing for {DELAY_LENGTH} seconds before fetching article: {url}")
                     sleep(DELAY_LENGTH)
 
                     soup = self.get_url_soup(url)
@@ -716,6 +721,7 @@ class SubstackScraper(BaseSubstackScraper):
     def is_article_premium_from_feed(self, url: str) -> bool:
         """
         Checks if an article is premium based on its content in the feed.
+        Prioritizes specific patterns and falls back to more general text checks.
         Returns True if premium, False otherwise.
         """
         if hasattr(self, 'feed_item_contents') and url in self.feed_item_contents:
