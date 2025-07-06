@@ -568,9 +568,12 @@ class BaseSubstackScraper(ABC):
         # For now, just chapters:
         book.spine = ['nav'] + chapters  # Nav should usually come first for navigation structure
 
+        # Get the number of posts successfully added to the EPUB
+        post_count = len(chapters)
+
         try:
             epub.write_epub(epub_filename, book, {})
-            print(f"Successfully generated EPUB: {epub_filename}")
+            print(f"Successfully generated EPUB: {epub_filename} with {post_count} posts.")
         except Exception as e:
             print(f"Error writing EPUB file for {author_name}: {e}")
 
